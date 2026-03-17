@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2026 by anonymous (http://jsbin.com/huwopaxiho/1/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockMate</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<style>
+    /* Reset & Base Styles */
+    html, body { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f7f6; box-sizing: border-box; }
+    *, *:before, *:after { box-sizing: inherit; }
+    
+    body.test-active { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; } 
+    
+    h1 { text-align: center; color: #333; font-size: 24px; margin: 15px 0;}
+    
+    .setup-container { max-width: 650px; margin: 5vh auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; }
+    .input-group { margin: 20px 0; font-size: 16px; text-align: left; background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #ddd;}
+    .input-group label { display: inline-block; min-width: 200px; }
+    #time-limit, #exam-type { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; width: calc(100% - 215px); min-width: 150px; }
+    #time-limit { text-align: center; }
+    
+    .setup-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 30px; }
+    .setup-buttons .submit-btn { width: auto; padding: 12px 30px; }
+    .setup-buttons .resume-btn { background: #2ca552; }
+    .setup-buttons .resume-btn:hover { background: #228b43; }
+
+    #test-screen { height: 100%; width: 100%; display: none; flex-direction: column; background: #f4f7f6; }
+    #main-title { flex-shrink: 0; padding: 10px 0; margin: 0; font-size: 28px; color: #0056b3; font-weight: bold; letter-spacing: 1px; }
+    
+    #mobile-top-bar { display: none; }
+    
+    .test-layout { flex: 1; display: flex; gap: 15px; padding: 0 15px 15px 15px; width: 100%; max-width: 1600px; margin: 0 auto; min-height: 0; }
+    
+    .main-left-column { flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0; min-height: 0;}
+
+    /* === PDF & OMR CONTAINER RATIOS - 60/40 === */
+    .pdf-container { flex: 6 1 0%; min-width: 300px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: none; flex-direction: column; overflow: hidden; border: 1px solid #ccc; min-height: 0;}
+    .omr-container { flex: 4 1 0%; width: 100%; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; min-height: 0;}
+    
+    .pdf-header { background: #0056b3; color: white; padding: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;}
+    .pdf-toolbar { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+    .pdf-btn { background: #fff; color: #0056b3; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 16px; }
+    .pdf-btn:hover { background: #e9ecef; }
+    #pdf-render-container { flex: 1; overflow: auto; padding: 15px; background: #525659; -webkit-overflow-scrolling: touch; }
+    #pdf-render-container canvas { margin: 0 auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.3); background-color: #fff; }
+
+    .subject-tabs-container { display: flex; background: #f1f3f5; border-bottom: 2px solid #ccc; flex-shrink: 0; }
+    .subject-tab { flex: 1; padding: 10px; font-size: 15px; font-weight: bold; color: #555; background: transparent; border: none; border-right: 1px solid #ddd; cursor: pointer; transition: 0.2s; }
+    .subject-tab:last-child { border-right: none; }
+    .subject-tab:hover { background: #e9ecef; }
+    .subject-tab.active { background: #0056b3; color: white; border-bottom: 3px solid #003d82; }
+
+    /* === COMPACTED OMR SECTION === */
+    #omr-scroll-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 15px 20px; scroll-behavior: smooth; }
+    #active-question-area { flex-shrink: 0; display: flex; flex-direction: column; margin-bottom: 15px; }
+    
+    .nta-q-header { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 8px; }
+    .nta-q-type { font-size: 13px; color: #666; margin-bottom: 12px; font-style: italic; }
+    
+    .nta-options-container { display: flex; flex-direction: column; gap: 8px; }
+    .nta-option-label { display: flex; align-items: center; font-size: 15px; cursor: pointer; padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; transition: background 0.2s; }
+    .nta-option-label:hover { background: #f8f9fa; }
+    .nta-option-label input[type="radio"] { transform: scale(1.3); margin-right: 12px; }
+    .nta-num-input { padding: 10px; width: 100%; max-width: 300px; border: 2px solid #ccc; border-radius: 5px; font-size: 16px; }
+
+    .nta-action-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; justify-content: space-between; flex-shrink: 0;}
+    .nta-btn-group { display: flex; gap: 8px; flex-wrap: wrap;}
+    .nta-action-btn { padding: 8px 12px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; transition: opacity 0.2s; color: white;}
+    .nta-action-btn:hover { opacity: 0.8; }
+    
+    .btn-save-next { background: #2ca552; }
+    .btn-clear { background: #fff; color: #333; border: 1px solid #ccc; }
+    .btn-review-next { background: #8442c5; }
+    .btn-nav { background: #6c757d; }
+
+    /* RIGHT SIDEBAR Styles */
+    .sidebar { width: 340px; flex-shrink: 0; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0;}
+    #close-sidebar-btn { display: none !important; }
+    
+    #timer-display { background-color: #87CEEB; color: #111; padding: 15px; border-radius: 5px; font-size: 28px; font-weight: bold; font-family: monospace; text-align: center; margin-bottom: 20px; margin-top: 0; flex-shrink: 0; transition: background-color 0.3s;}
+    
+    .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 8px; margin-bottom: 20px; font-size: 12px; flex-shrink: 0; border-bottom: 1px solid #eee; padding-bottom: 15px; color: #333; font-size: 13px;}
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    
+    .palette-subject-title { font-size: 16px; font-weight: bold; background: #0056b3; color: white; padding: 8px; border-radius: 4px; margin: 10px 0 12px 0; text-align: center; }
+    .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 15px; } 
+    
+    .pal-btn, .legend-box { width: 100%; aspect-ratio: 1; font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center; border: none; transition: 0.2s; }
+    .pal-btn { cursor: pointer; }
+    .pal-btn:hover { opacity: 0.8; }
+    .legend-box { width: 32px; height: 32px; flex-shrink: 0; } 
+
+    .status-not-visited { background: #ffffff; color: #555; border: 1px solid #aaa; border-radius: 4px; }
+    .status-not-answered { background: #db433f; color: white; clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 0% 100%, 0% 25%); border-radius: 0 0 6px 6px; padding-top: 4px; }
+    .status-answered { background: #2ca552; color: white; clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 50% 100%, 0% 75%); border-radius: 6px 6px 0 0; padding-bottom: 4px; }
+    .status-review { background: #8442c5; color: white; border-radius: 50%; }
+    .status-answered-review { background: #8442c5; color: white; border-radius: 50%; position: relative; }
+    .status-answered-review::after { content: ''; position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: #83c552; border-radius: 50%; border: 2px solid white; }
+    .pal-btn.current-q { transform: scale(1.15); filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.8)); z-index: 2; }
+
+    .submit-btn { width: 100%; padding: 15px; background: #0056b3; color: white; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: auto; flex-shrink: 0;}
+    .submit-btn:hover { background: #004494; }
+
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 3000; padding: 15px; }
+    .modal-content { background: #fff; padding: 30px; border-radius: 8px; text-align: center; max-width: 650px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-buttons { display: flex; gap: 15px; justify-content: center; margin-top: 25px; }
+    .modal-btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 150px; }
+    .back-btn { background: #6c757d; color: white; }
+    .confirm-btn { background: #2ca552; color: white; }
+    
+    .table-wrapper { width: 100%; overflow-x: auto; margin-top: 20px; border-radius: 4px; -webkit-overflow-scrolling: touch; }
+
+    /* DRAG & DROP STYLES */
+    .dropzone { border: 2px dashed #0056b3; border-radius: 8px; padding: 40px 20px; text-align: center; background: #f8f9fa; cursor: pointer; transition: all 0.2s ease; margin-bottom: 15px; position: relative; }
+    .dropzone:hover, .dropzone.dragover { background: #e9ecef; border-color: #2ca552; }
+    .dropzone input[type="file"] { display: none; }
+    .file-list { text-align: left; font-size: 14px; max-height: 150px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; }
+    .file-item { background: #e9ecef; padding: 8px 12px; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ddd; }
+    .file-item-remove { color: #dc3545; cursor: pointer; font-weight: bold; font-size: 16px; border: none; background: none; padding: 0 5px; }
+    .file-item-remove:hover { color: #a71d2a; }
+
+    /* === RESULT AREA & TABLE STYLES === */
+    #result-area { display: none; background: #fff; padding: 30px; max-width: 1200px; margin: 0 auto; border-radius: 8px;}
+    .result-subject { margin-bottom: 30px; }
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+    .ans-box { background: #f8f9fa; border: 1px solid #ccc; padding: 10px; text-align: center; border-radius: 4px; font-size: 14px; }
+    .ans-box span { font-weight: bold; color: #0056b3; }
+    
+    .summary-table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 550px; }
+    .summary-table th, .summary-table td { border: 1px solid #ddd; padding: 12px; text-align: center; font-size: 15px;}
+    .summary-table th { background: #0056b3; color: white; }
+    
+    .eval-btn { background: #2ca552; margin-bottom: 30px; width: auto; padding: 12px 25px; display: inline-block;}
+    .eval-btn:hover { background: #228b43; }
+    
+    .footer-credit { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; font-weight: bold; color: #555; }
+    .insta-link { display: flex; align-items: center; gap: 8px; color: #E1306C; text-decoration: none; font-size: 16px;}
+    .insta-link:hover { color: #C13584; }
+    .insta-link svg { width: 24px; height: 24px; fill: currentColor; }
+
+    /* Responsive Design */
+    @media (max-width: 900px) {
+        .setup-buttons { flex-direction: column; width: 100%; }
+        .setup-buttons .submit-btn { width: 100%; }
+        
+        .input-group label { display: block; margin-bottom: 10px; }
+        #time-limit, #exam-type { width: 100%; margin-left: 0 !important; }
+
+        #mobile-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 1000;}
+        #mobile-menu-btn { background: #0056b3; color: white; border: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 24px; cursor: pointer; padding: 0; }
+        
+        .mobile-right-controls { display: flex; align-items: center; gap: 10px; }
+        #mobile-top-submit { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        #mobile-timer-display { background: #87CEEB; color: #111; padding: 8px 15px; border-radius: 4px; font-weight: bold; font-family: monospace; font-size: 18px;}
+        
+        #sidebar-panel .submit-btn { display: none; }
+        
+        #main-title, #timer-display { display: none !important; } 
+        
+        .test-layout { flex-direction: column; padding: 0; gap: 0; height: calc(100vh - 60px); }
+        .main-left-column { gap: 0; }
+        
+        .test-layout.has-pdf .pdf-container { flex: 0 0 45%; min-width: 100%; border-radius: 0; border-bottom: 3px solid #0056b3; border-left: none; border-right: none;}
+        .test-layout.has-pdf .omr-container { flex: 0 0 55%; width: 100%; border-radius: 0; }
+        .test-layout:not(.has-pdf) .omr-container { flex: 1; width: 100%; border-radius: 0; }
+
+        .nta-action-bar { flex-direction: column; }
+        .nta-btn-group { justify-content: center; }
+        .nta-action-btn { flex: 1; text-align: center; }
+        
+        #mobile-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1999; }
+        #mobile-backdrop.active { display: block; }
+        
+        .sidebar { position: fixed; top: 0; left: -100%; width: 85%; max-width: 340px; height: 100%; background: #fff; z-index: 2000; margin: 0; border-radius: 0; transition: left 0.3s ease-in-out; }
+        .sidebar.active { left: 0; }
+        #close-sidebar-btn { display: block !important; position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 28px; cursor: pointer; color: #333; z-index: 10; }
+        
+        .summary-table th, .summary-table td { font-size: 13px; padding: 8px 6px; }
+        .footer-credit { flex-direction: column; gap: 15px; text-align: center; justify-content: center; }
+    }
+</style>
+</head>
+<body>
+
+<div id="auth-screen" class="setup-container" style="display: block;">
+    <h1 style="color: #0056b3;">Welcome to MockMate</h1>
+    <p style="color: #666; margin-bottom: 20px;">Enter your access key to continue to your workspace.</p>
+    <div class="input-group" style="text-align: center; background: transparent; border: none; padding: 0;">
+        <input type="password" id="access-key-input" placeholder="Enter Access Key" style="padding: 12px; font-size: 16px; width: 80%; max-width: 300px; border: 2px solid #ccc; border-radius: 4px; text-align: center;" onkeypress="if(event.key === 'Enter') verifyAccessKey()">
+    </div>
+    <div class="setup-buttons">
+        <button class="submit-btn" onclick="verifyAccessKey()">Enter Workspace</button>
+    </div>
+    <p id="auth-error" style="color: #db433f; display: none; margin-top: 15px; font-weight: bold;">Invalid Access Key!</p>
+</div>
+
+<div id="setup-screen" class="setup-container" style="display: none;">
+    <h1>MockMate - Exam Setup</h1>
+    
+    <div class="input-group">
+        <label for="exam-type"><strong>Select Examination:</strong></label>
+        <select id="exam-type">
+            <option value="jee">JEE Mains (75 Qs, Subject-wise, Numericals)</option>
+            <option value="gov">Government Exam (100 Qs, Direct MCQs)</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label for="time-limit"><strong>Set Time Limit (Minutes):</strong></label>
+        <input type="number" id="time-limit" value="180" min="1">
+    </div>
+
+    <div class="input-group">
+        <label style="display:block; margin-bottom:10px;"><strong>Upload Mock Test PDF (Optional):</strong></label>
+        <div id="setup-dropzone" class="dropzone" onclick="document.getElementById('pdf-upload').click()" style="padding: 25px 20px; margin-bottom: 0;">
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #0056b3;">Drag & Drop Question PDF Here</p>
+            <p style="margin: 5px 0; font-size: 13px; color: #666;">or click to browse</p>
+            <input type="file" id="pdf-upload" accept="application/pdf" onchange="handleSetupFileSelect(event)">
+        </div>
+        <div id="setup-file-display" style="margin-top: 10px; font-size: 14px; color: #2ca552; font-weight: bold; text-align: center;"></div>
+    </div>
+
+    <div class="setup-buttons">
+        <button class="submit-btn" onclick="startTest(false)">Start Fresh Test</button>
+        <button class="submit-btn resume-btn" onclick="startTest(true)">Resume Saved Test</button>
+    </div>
+</div>
+
+<div id="test-screen">
+    <div id="mobile-top-bar">
+        <button id="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="mobile-right-controls">
+            <button id="mobile-top-submit" onclick="submitOMR(false)">Submit</button>
+            <div id="mobile-timer-display">00:00</div>
+        </div>
+    </div>
+    <div id="mobile-backdrop" onclick="toggleSidebar()"></div>
+
+    <h1 id="main-title">MockMate</h1>
+    
+    <div class="test-layout" id="test-layout">
+        <div class="main-left-column">
+            <div class="pdf-container" id="pdf-panel">
+                <div class="pdf-header">
+                    <span>Question Paper</span>
+                    <div class="pdf-toolbar">
+                        <button class="pdf-btn" onclick="zoomOut()">-</button>
+                        <button class="pdf-btn" onclick="zoomIn()">+</button>
+                        <span style="margin: 0 5px;">Page <span id="page-num">0</span> / <span id="page-count">0</span></span>
+                        <button class="pdf-btn" onclick="prevPage()">◀</button>
+                        <button class="pdf-btn" onclick="nextPage()">▶</button>
+                    </div>
+                </div>
+                <div id="pdf-render-container"><canvas id="pdf-canvas"></canvas></div>
+            </div>
+
+            <div class="omr-container" id="omr-form-area">
+                <div class="subject-tabs-container" id="subject-tabs"></div>
+                
+                <div id="omr-scroll-area">
+                    <div id="active-question-area"></div>
+                    
+                    <div class="nta-action-bar">
+                        <div class="nta-btn-group">
+                            <button class="nta-action-btn btn-save-next" onclick="saveAndNext()">Save & Next</button>
+                            <button class="nta-action-btn btn-clear" onclick="clearResponse()">Clear Response</button>
+                            <button class="nta-action-btn btn-review-next" onclick="markReviewAndNext()">Mark for Review & Next</button>
+                        </div>
+                        <div class="nta-btn-group">
+                            <button class="nta-action-btn btn-nav" onclick="navigateQuestion(-1)">&lt; Previous</button>
+                            <button class="nta-action-btn btn-nav" onclick="navigateQuestion(1)">Next &gt;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar" id="sidebar-panel">
+            <button id="close-sidebar-btn" onclick="toggleSidebar()">✖</button>
+            <div id="timer-display">00:00</div>
+            
+            <div class="legend">
+                <div class="legend-item"><div class="legend-box status-answered"></div> Answered</div>
+                <div class="legend-item"><div class="legend-box status-not-answered"></div> Not Answered</div>
+                <div class="legend-item"><div class="legend-box status-not-visited"></div> Not Visited</div>
+                <div class="legend-item"><div class="legend-box status-review"></div> Marked for Review</div>
+                <div class="legend-item" style="grid-column: 1 / -1;"><div class="legend-box status-answered-review"></div> 
+                    <div>Answered & Marked for Review<br><span style="color:#666; font-size: 11px;">(will also be considered for evaluation)</span></div>
+                </div>
+            </div>
+
+            <div id="palette-container"></div>
+            <button type="button" class="submit-btn" style="margin-top: 20px;" onclick="submitOMR(false)">Submit Test</button>
+        </div>
+    </div>
+</div>
+
+<div id="submit-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="margin-top: 0; color: #333;">Confirm Submission</h2>
+        <p id="submit-modal-text" style="font-size: 16px; color: #555; line-height: 1.5;"></p>
+        <div id="submit-modal-table-area"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn back-btn" onclick="closeSubmitModal()">Back</button>
+            <button class="modal-btn confirm-btn" onclick="finalSubmit()">Submit</button>
+        </div>
+    </div>
+</div>
+
+<div id="eval-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="margin-top: 0; color: #333;">Evaluate Marks</h2>
+        <p style="color: #555;">Attach the official Answer Key (Images or PDF) to combine with your response sheet for evaluation via ChatGPT or Gemini.</p>
+        
+        <div id="dropzone" class="dropzone" onclick="document.getElementById('answer-key-upload').click()">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #0056b3;">Drag & Drop Answer Key Here</p>
+            <p style="margin: 8px 0; font-size: 14px; color: #666;">or click to browse files</p>
+            <p style="margin: 0; font-size: 13px; color: #888; font-style: italic;">(You can also Paste images directly using Ctrl+V or Cmd+V)</p>
+            <input type="file" id="answer-key-upload" accept="image/*,application/pdf" multiple onchange="handleFileSelect(event)">
+        </div>
+        
+        <div id="file-list" class="file-list"></div>
+
+        <div class="modal-buttons">
+            <button class="modal-btn back-btn" onclick="closeEvalModal()">Cancel</button>
+            <button class="modal-btn confirm-btn" onclick="prepareGeminiEval()" id="prepare-eval-btn">Generate Combined PDF</button>
+        </div>
+    </div>
+</div>
+
+<div id="prompt-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 800px; text-align: left;">
+        <h2 style="margin-top: 0; color: #2ca552; text-align: center;">Combined PDF Ready!</h2>
+        <ol style="color: #333; line-height: 1.6; font-size: 15px;">
+            <li>Your Response Sheet and Answer Keys have been <strong>combined into a single PDF</strong> and downloaded to your device.</li>
+            <li>Copy the exact prompt generated below.</li>
+            <li>Go to your <strong>ChatGPT</strong> or <strong>Gemini</strong> chat, paste the prompt, and upload the <strong>new Combined PDF</strong>.</li>
+        </ol>
+        <textarea id="gemini-prompt-text" rows="8" style="width:100%; margin-top:10px; padding:15px; font-family:monospace; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; resize: none;" readonly></textarea>
+        <div class="modal-buttons">
+            <button class="modal-btn confirm-btn" onclick="copyPromptAndClose()" style="width: 200px;">Copy & Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="result-area">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="margin-top: 0; font-size: 28px; color: #0056b3;">MockMate Response Sheet</h2>
+        <button type="button" id="evaluate-btn" class="submit-btn eval-btn" onclick="openEvalModal()">Evaluate Marks via AI (ChatGPT / Gemini)</button>
+    </div>
+    <div id="result-content"></div>
+</div>
+
+<script>
+    // === AUTHENTICATION LOGIC ===
+    const ADMIN_CODE = "T467467";
+    
+    // Check if a custom key has been set locally, otherwise default to xmdeepu
+    let currentAppKey = localStorage.getItem('omr_app_access_key') || "xmdeepu";
+
+    function verifyAccessKey() {
+        const inputKey = document.getElementById('access-key-input').value.trim();
+        const errorMsg = document.getElementById('auth-error');
+        
+        if (inputKey === ADMIN_CODE) {
+            const newKey = prompt("Admin Mode: Enter the new access key for users.");
+            if (newKey && newKey.trim() !== "") {
+                currentAppKey = newKey.trim();
+                localStorage.setItem('omr_app_access_key', currentAppKey);
+                alert("Access key changed successfully!\n\nNote: Because this runs locally in your browser, this change only affects this specific device/browser.");
+                document.getElementById('access-key-input').value = ""; // clear input
+            }
+            errorMsg.style.display = 'none';
+        } else if (inputKey === currentAppKey) {
+            // Success - Hide Auth, Show Setup
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('setup-screen').style.display = 'block';
+        } else {
+            // Fail
+            errorMsg.style.display = 'block';
+        }
+    }
+
+
+    // === SETUP SCREEN DRAG & DROP LOGIC ===
+    const setupDropzone = document.getElementById('setup-dropzone');
+    const pdfUploadInput = document.getElementById('pdf-upload');
+    const setupFileDisplay = document.getElementById('setup-file-display');
+
+    setupDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        setupDropzone.classList.add('dragover');
+    });
+
+    setupDropzone.addEventListener('dragleave', () => {
+        setupDropzone.classList.remove('dragover');
+    });
+
+    setupDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        setupDropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            pdfUploadInput.files = e.dataTransfer.files;
+            handleSetupFileSelect({ target: pdfUploadInput });
+        }
+    });
+
+    function handleSetupFileSelect(event) {
+        if (event.target.files.length > 0) {
+            setupFileDisplay.innerText = "📄 Selected: " + event.target.files[0].name;
+        } else {
+            setupFileDisplay.innerText = "";
+        }
+    }
+
+
+    // Global Config Variables
+    let examMode = 'jee';
+    let subjects = [];
+    let totalQuestions = 0;
+    let subjectRanges = {};
+
+    const options = ['A', 'B', 'C', 'D'];
+    
+    let timerInterval; 
+    let testData = {}; 
+    let timeLeft = 0;
+    let currentQNum = 1;
+    let currentSubject = '';
+
+    let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null, pdfScale = 1.0, initialScaleCalculated = false;
+    let canvas = document.getElementById('pdf-canvas');
+    let ctx = canvas ? canvas.getContext('2d') : null;
+
+    // --- PROMPTS ---
+    const jeePrompt = `Please evaluate my JEE Main performance based on the uploaded MockMate combined PDF document (which contains my response sheet followed by the official answer key). Use the standard JEE Main marking scheme (+4 for correct, -1 for incorrect, 0 for unattempted) and provide the analysis in the following order:
+1. Final Score Summary: Provide the total number of correct answers, incorrect answers, unattempted questions, and my overall net score out of 300.
+2. Subject-wise Summary & Accuracy Table: Create a table with the following columns: Subject (Physics, Chemistry, Mathematics), Correct, Incorrect, Unattempted, Positive Marks, Negative Marks, Net Score, and Accuracy Percentage.
+3. Performance Charts: You must write AND execute Python code to visually render and display the actual bar charts directly in this chat. Do not just output the Python code. Please display the following charts:
+"Subject-wise Correct vs Incorrect Questions"
+"Subject-wise Positive vs Negative Marks"
+4. Detailed Question-by-Question Tables: For each subject, provide a detailed table mapping my marked option (A, B, C, D converted to 1, 2, 3, 4) against the correct option. The table must include unattempted questions and have the following columns: Question No., Status (Correct/Incorrect/Unattempted), Your Marked Option, and Correct Option.
+5. Percentile Prediction: Based on mark-vs-percentile trends from recent JEE Main sessions, predict my overall expected percentile as well as my expected subject-wise percentiles for Physics, Chemistry, and Mathematics.`;
+
+    const govPrompt = `Please evaluate my mock test performance based on the uploaded MockMate combined PDF document (which contains my response sheet followed by the official answer key). Use the specific marking scheme for this exam: +2 marks for every correct answer, -0.33 marks (one-third deduction) for every incorrect answer, and 0 marks for unattempted questions. There are no specific subjects, so please provide an overall analysis in the following order:
+1. Final Score Summary: Provide the total number of correct answers, incorrect answers, unattempted questions, and my final overall net score.
+2. Performance Charts: Generate bar charts using Python showing the overall summary:
+"Total Correct vs Incorrect vs Unattempted Questions"
+"Total Positive Marks vs Total Negative Marks"
+3. Detailed Question-by-Question Table: Provide a single comprehensive table mapping my marked option against the official correct option. The table must include unattempted questions and have the following columns: Question No., Status (Correct/Incorrect/Unattempted), Your Marked Option, and Correct Option.
+4. Percentile Prediction: Based on the calculated marks and general recent trends for this government exam, predict my overall expected percentile.`;
+
+    function setExamConfig(mode) {
+        examMode = mode;
+        if (examMode === 'jee') {
+            subjects = ['Physics', 'Chemistry', 'Mathematics'];
+            totalQuestions = 75;
+            subjectRanges = {
+                'Physics': { start: 1, end: 25 },
+                'Chemistry': { start: 26, end: 50 },
+                'Mathematics': { start: 51, end: 75 }
+            };
+            document.getElementById('subject-tabs').style.display = 'flex';
+        } else {
+            subjects = ['General'];
+            totalQuestions = 100;
+            subjectRanges = {
+                'General': { start: 1, end: 100 }
+            };
+            document.getElementById('subject-tabs').style.display = 'none';
+        }
+    }
+
+    function initDataStructure() {
+        for(let i = 1; i <= totalQuestions; i++) {
+            testData[i] = { answer: "", status: "not-visited" };
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem('mockmate_data_mode', examMode);
+        localStorage.setItem('mockmate_data_saved', JSON.stringify(testData));
+        localStorage.setItem('mockmate_data_time', timeLeft);
+        localStorage.setItem('mockmate_data_currQ', currentQNum);
+        localStorage.setItem('mockmate_data_currSub', currentSubject);
+    }
+
+    function loadData() {
+        const savedMode = localStorage.getItem('mockmate_data_mode') || 'jee';
+        setExamConfig(savedMode);
+        
+        const savedData = localStorage.getItem('mockmate_data_saved');
+        const savedTime = localStorage.getItem('mockmate_data_time');
+        const savedQ = localStorage.getItem('mockmate_data_currQ');
+        const savedSub = localStorage.getItem('mockmate_data_currSub');
+        
+        if (savedData) testData = JSON.parse(savedData);
+        if (savedTime) timeLeft = parseInt(savedTime);
+        if (savedQ) currentQNum = parseInt(savedQ);
+        if (savedSub) currentSubject = savedSub;
+    }
+
+    function toggleSidebar() {
+        document.getElementById('sidebar-panel').classList.toggle('active');
+        document.getElementById('mobile-backdrop').classList.toggle('active');
+    }
+    
+    function renderTabs() {
+        if (examMode === 'gov') return; 
+        
+        const tabContainer = document.getElementById('subject-tabs');
+        tabContainer.innerHTML = '';
+        subjects.forEach(sub => {
+            const btn = document.createElement('button');
+            btn.className = `subject-tab ${currentSubject === sub ? 'active' : ''}`;
+            btn.innerText = sub;
+            btn.onclick = () => switchSubject(sub);
+            tabContainer.appendChild(btn);
+        });
+    }
+    
+    function switchSubject(sub) {
+        if (currentSubject === sub) return;
+        currentSubject = sub;
+        currentQNum = subjectRanges[sub].start; 
+        renderTabs();
+        generatePalette();
+        renderQuestion(currentQNum);
+    }
+
+    function generatePalette() {
+        const paletteContainer = document.getElementById('palette-container');
+        paletteContainer.innerHTML = '';
+        
+        const palSubjectTitle = document.createElement('div');
+        palSubjectTitle.className = 'palette-subject-title';
+        palSubjectTitle.innerText = examMode === 'jee' ? currentSubject : 'Questions Palette';
+        paletteContainer.appendChild(palSubjectTitle);
+
+        const palGrid = document.createElement('div');
+        palGrid.className = 'palette-grid';
+        paletteContainer.appendChild(palGrid);
+
+        const start = subjectRanges[currentSubject].start;
+        const end = subjectRanges[currentSubject].end;
+
+        for (let i = start; i <= end; i++) {
+            const palBtn = document.createElement('button');
+            palBtn.className = `pal-btn status-${testData[i].status} ${i === currentQNum ? 'current-q' : ''}`;
+            palBtn.id = `pal-btn-${i}`;
+            palBtn.innerText = i;
+            
+            palBtn.onclick = (function(q) {
+                return function() {
+                    renderQuestion(q);
+                    if(window.innerWidth <= 900) toggleSidebar();
+                }
+            })(i);
+            
+            palGrid.appendChild(palBtn);
+        }
+    }
+
+    function getQuestionDetails(qNum) {
+        if (examMode === 'gov') {
+            return { subject: 'General', type: 'MCQ', localQNum: qNum };
+        }
+
+        let type = "", localQNum = 0;
+        let subj = 'Physics';
+        if (qNum <= 25) { subj = "Physics"; localQNum = qNum; }
+        else if (qNum <= 50) { subj = "Chemistry"; localQNum = qNum - 25; }
+        else { subj = "Mathematics"; localQNum = qNum - 50; }
+
+        type = (localQNum <= 20) ? "MCQ" : "NUMERICAL";
+        return { subject: subj, type, localQNum };
+    }
+
+    function renderQuestion(qNum) {
+        if (qNum < 1 || qNum > totalQuestions) return;
+        
+        const details = getQuestionDetails(qNum);
+        if (details.subject !== currentSubject) {
+            currentSubject = details.subject;
+            renderTabs();
+            generatePalette(); 
+        }
+
+        const prevBtn = document.getElementById(`pal-btn-${currentQNum}`);
+        if(prevBtn) prevBtn.classList.remove('current-q');
+        
+        currentQNum = qNum;
+        
+        if (testData[currentQNum].status === 'not-visited') {
+            testData[currentQNum].status = 'not-answered';
+            updatePaletteColor(currentQNum);
+        }
+
+        const currBtn = document.getElementById(`pal-btn-${currentQNum}`);
+        if(currBtn) currBtn.classList.add('current-q');
+
+        const area = document.getElementById('active-question-area');
+        
+        let typeText = "Multiple Choice Question";
+        if (examMode === 'jee') {
+            typeText = details.type === 'MCQ' ? 'Section A: Multiple Choice Question' : 'Section B: Numerical Value Question';
+        }
+
+        let html = `
+            <div class="nta-q-header">Question ${currentQNum}</div>
+            <div class="nta-q-type">${typeText}</div>
+            <div class="nta-options-container">
+        `;
+
+        const savedAns = testData[currentQNum].answer;
+
+        if (details.type === 'MCQ') {
+            options.forEach(opt => {
+                const isChecked = savedAns === opt ? "checked" : "";
+                html += `
+                    <label class="nta-option-label">
+                        <input type="radio" name="active_q" value="${opt}" ${isChecked} onchange="tempSave()">
+                        Option ${opt}
+                    </label>
+                `;
+            });
+        } else {
+            html += `<input type="number" step="any" class="nta-num-input" id="active_num_q" placeholder="Enter numerical value..." value="${savedAns}" oninput="tempSave()">`;
+        }
+        
+        html += `</div>`;
+        area.innerHTML = html;
+        saveData();
+
+        const scrollContainer = document.getElementById('omr-scroll-area');
+        if (scrollContainer) {
+            scrollContainer.scrollTop = 0;
+        }
+    }
+
+    function tempSave() {
+        const details = getQuestionDetails(currentQNum);
+        let val = "";
+        if (details.type === 'MCQ') {
+            const selected = document.querySelector(`input[name="active_q"]:checked`);
+            if (selected) val = selected.value;
+        } else {
+            val = document.getElementById('active_num_q').value.trim();
+        }
+        testData[currentQNum].answer = val;
+    }
+
+    function saveAndNext() {
+        tempSave();
+        const ans = testData[currentQNum].answer;
+        if (ans !== "") testData[currentQNum].status = 'answered';
+        else testData[currentQNum].status = 'not-answered';
+        
+        updatePaletteColor(currentQNum);
+        navigateQuestion(1);
+    }
+
+    function markReviewAndNext() {
+        tempSave();
+        const ans = testData[currentQNum].answer;
+        if (ans !== "") testData[currentQNum].status = 'answered-review';
+        else testData[currentQNum].status = 'review';
+        
+        updatePaletteColor(currentQNum);
+        navigateQuestion(1);
+    }
+
+    function clearResponse() {
+        testData[currentQNum].answer = "";
+        testData[currentQNum].status = 'not-answered';
+        updatePaletteColor(currentQNum);
+        renderQuestion(currentQNum); 
+    }
+
+    function navigateQuestion(step) {
+        let nextQ = currentQNum + step;
+        if (nextQ >= 1 && nextQ <= totalQuestions) {
+            renderQuestion(nextQ);
+        }
+    }
+
+    function updatePaletteColor(qNum) {
+        const btn = document.getElementById(`pal-btn-${qNum}`);
+        if(btn) {
+            const isCurrent = btn.classList.contains('current-q');
+            btn.className = `pal-btn status-${testData[qNum].status}`;
+            if(isCurrent) btn.classList.add('current-q');
+        }
+    }
+
+    function startTest(resume) {
+        if (!resume || !localStorage.getItem('mockmate_data_saved')) {
+            const modeSelect = document.getElementById('exam-type').value;
+            setExamConfig(modeSelect);
+            initDataStructure();
+            
+            const timeInput = document.getElementById('time-limit').value;
+            timeLeft = parseInt(timeInput) * 60;
+            currentQNum = 1;
+            currentSubject = subjects[0];
+        } else {
+            loadData(); 
+        }
+
+        if (pdfUploadInput.files && pdfUploadInput.files[0]) {
+            document.getElementById('test-layout').classList.add('has-pdf');
+            const fileURL = URL.createObjectURL(pdfUploadInput.files[0]);
+            document.getElementById('pdf-panel').style.display = 'flex';
+
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+            pdfjsLib.getDocument(fileURL).promise.then(function(pdfDoc_) {
+                pdfDoc = pdfDoc_;
+                document.getElementById('page-count').textContent = pdfDoc.numPages;
+                renderPage(1);
+            });
+        }
+
+        document.getElementById('setup-screen').style.display = 'none';
+        document.body.classList.add('test-active');
+        document.getElementById('test-screen').style.display = 'flex';
+        
+        renderTabs();
+        generatePalette();
+        renderQuestion(currentQNum);
+        startTimer();
+    }
+
+    function startTimer() {
+        const display = document.getElementById('timer-display');
+        const mobileDisplay = document.getElementById('mobile-timer-display');
+        
+        timerInterval = setInterval(function () {
+            let m = parseInt(timeLeft / 60, 10);
+            let s = parseInt(timeLeft % 60, 10);
+            m = m < 10 ? "0" + m : m;
+            s = s < 10 ? "0" + s : s;
+            
+            const timeStr = m + ":" + s;
+            display.textContent = timeStr;
+            if(mobileDisplay) mobileDisplay.textContent = timeStr;
+
+            if (--timeLeft < 0) {
+                clearInterval(timerInterval);
+                submitOMR(true); 
+            }
+        }, 1000);
+    }
+
+    function renderPage(num) {
+        pageRendering = true;
+        pdfDoc.getPage(num).then(function(page) {
+            if(!initialScaleCalculated) {
+                const c = document.getElementById('pdf-render-container');
+                pdfScale = (c.clientWidth - 35) / page.getViewport({scale: 1.0}).width;
+                initialScaleCalculated = true;
+            }
+            const vp = page.getViewport({scale: pdfScale});
+            const os = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(vp.width * os);
+            canvas.height = Math.floor(vp.height * os);
+            canvas.style.width = Math.floor(vp.width) + "px";
+            canvas.style.height = Math.floor(vp.height) + "px";
+            const task = page.render({canvasContext: ctx, transform: os !== 1 ? [os, 0, 0, os, 0, 0] : null, viewport: vp});
+            task.promise.then(function() {
+                pageRendering = false;
+                if (pageNumPending !== null) { renderPage(pageNumPending); pageNumPending = null; }
+            });
+        });
+        document.getElementById('page-num').textContent = num;
+    }
+    function queueRenderPage(num) { if (pageRendering) pageNumPending = num; else renderPage(num); }
+    function prevPage() { if (pageNum <= 1) return; pageNum--; queueRenderPage(pageNum); }
+    function nextPage() { if (pageNum >= pdfDoc.numPages) return; pageNum++; queueRenderPage(pageNum); }
+    function zoomIn() { pdfScale += 0.15; queueRenderPage(pageNum); }
+    function zoomOut() { if (pdfScale <= 0.4) return; pdfScale -= 0.15; queueRenderPage(pageNum); }
+
+    function generateSummaryTableHTML() {
+        let tableHTML = `
+            <div class="table-wrapper">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>${examMode === 'jee' ? 'Subject' : 'Section'}</th>
+                            <th>Attempted</th>
+                            <th>Not Answered</th>
+                            <th>Not Visited</th>
+                            <th>Marked for Review</th>
+                            <th>Answered & Review</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        subjects.forEach(subject => {
+            let stats = { att: 0, notAns: 0, notVis: 0, rev: 0, ansRev: 0 };
+            const start = subjectRanges[subject].start;
+            const end = subjectRanges[subject].end;
+
+            for (let i = start; i <= end; i++) {
+                let status = testData[i].status;
+                if (status === 'answered') stats.att++;
+                else if (status === 'not-answered') stats.notAns++;
+                else if (status === 'not-visited') stats.notVis++;
+                else if (status === 'review') stats.rev++;
+                else if (status === 'answered-review') stats.ansRev++;
+            }
+
+            tableHTML += `
+                <tr>
+                    <td><strong>${subject}</strong></td>
+                    <td style="color:#2ca552; font-weight:bold;">${stats.att}</td>
+                    <td style="color:#db433f; font-weight:bold;">${stats.notAns}</td>
+                    <td style="color:#666; font-weight:bold;">${stats.notVis}</td>
+                    <td style="color:#8442c5; font-weight:bold;">${stats.rev}</td>
+                    <td style="color:#8442c5; font-weight:bold;">${stats.ansRev}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += `</tbody></table></div>`;
+        return tableHTML;
+    }
+
+    function submitOMR(auto) {
+        if (!auto) {
+            let un = 0;
+            for(let i=1; i<=totalQuestions; i++) { 
+                if(testData[i].status === 'not-answered' || testData[i].status === 'not-visited') un++; 
+            }
+            
+            let msg = un > 0 
+                ? `You have <strong>${un} unattempted</strong> questions.<br><br>Are you sure you want to submit?` 
+                : `You have attempted all questions!<br><br>Are you sure you want to submit?`;
+                
+            document.getElementById('submit-modal-text').innerHTML = msg;
+            document.getElementById('submit-modal-table-area').innerHTML = generateSummaryTableHTML();
+            document.getElementById('submit-modal').style.display = 'flex';
+        } else {
+            finalSubmit();
+        }
+    }
+    
+    function closeSubmitModal() { document.getElementById('submit-modal').style.display = 'none'; }
+    
+    function finalSubmit() {
+        document.getElementById('submit-modal').style.display = 'none';
+        clearInterval(timerInterval);
+        
+        document.body.classList.remove('test-active');
+        document.getElementById('test-screen').style.display = 'none';
+        
+        const resultArea = document.getElementById('result-area');
+        const resultContent = document.getElementById('result-content');
+        resultContent.innerHTML = ''; 
+
+        subjects.forEach(subject => {
+            const subjDiv = document.createElement('div');
+            subjDiv.className = 'result-subject';
+            if (examMode === 'jee') {
+                subjDiv.innerHTML = `<h3 style="color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px;">${subject}</h3>`;
+            }
+            
+            const grid = document.createElement('div');
+            grid.className = 'result-grid';
+            
+            const start = subjectRanges[subject].start;
+            const end = subjectRanges[subject].end;
+
+            for (let i = start; i <= end; i++) {
+                let answer = testData[i].answer !== "" ? testData[i].answer : "-"; 
+                const ansBox = document.createElement('div');
+                ansBox.className = 'ans-box';
+                ansBox.innerHTML = `Q${i}: <span>${answer}</span>`;
+                grid.appendChild(ansBox);
+            }
+            
+            subjDiv.appendChild(grid);
+            resultContent.appendChild(subjDiv);
+        });
+
+        resultContent.innerHTML += `<h3 style="color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-top: 40px;">Final Summary</h3>`;
+        resultContent.innerHTML += generateSummaryTableHTML();
+        
+        resultContent.innerHTML += `
+            <div class="footer-credit">
+                <div>Made with ❤️ by Deepu Kumar</div>
+                <a href="https://www.instagram.com/xmdeepu" target="_blank" rel="noopener noreferrer" class="insta-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"/></svg>
+                    @xmdeepu
+                </a>
+            </div>
+        `;
+
+        localStorage.removeItem('mockmate_data_mode');
+        localStorage.removeItem('mockmate_data_saved');
+        localStorage.removeItem('mockmate_data_time');
+        localStorage.removeItem('mockmate_data_currQ');
+        localStorage.removeItem('mockmate_data_currSub');
+
+        resultArea.style.display = 'block';
+        window.scrollTo(0, 0);
+    }
+
+    // --- EVALUATION MODAL & CAPTURE LOGIC WITH DRAG/DROP/PASTE ---
+    let answerKeyFiles = [];
+
+    function openEvalModal() {
+        document.getElementById('eval-modal').style.display = 'flex';
+        answerKeyFiles = [];
+        renderFileList();
+    }
+
+    function closeEvalModal() {
+        document.getElementById('eval-modal').style.display = 'none';
+        answerKeyFiles = [];
+        document.getElementById('answer-key-upload').value = '';
+    }
+
+    // Drag and Drop Listeners for Eval Modal
+    const evalDropzone = document.getElementById('dropzone');
+    
+    evalDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        evalDropzone.classList.add('dragover');
+    });
+
+    evalDropzone.addEventListener('dragleave', () => {
+        evalDropzone.classList.remove('dragover');
+    });
+
+    evalDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        evalDropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            addFiles(e.dataTransfer.files);
+        }
+    });
+
+    // File Input Listener
+    function handleFileSelect(event) {
+        if (event.target.files.length > 0) {
+            addFiles(event.target.files);
+            event.target.value = ''; // Reset input
+        }
+    }
+
+    // Paste Listener
+    window.addEventListener('paste', (e) => {
+        if (document.getElementById('eval-modal').style.display === 'flex') {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let pastedFiles = [];
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file') {
+                    const blob = item.getAsFile();
+                    // Create a pseudo File object from the Blob
+                    const file = new File([blob], `Pasted_Image_${Date.now()}.png`, { type: blob.type });
+                    pastedFiles.push(file);
+                }
+            }
+            if (pastedFiles.length > 0) {
+                addFiles(pastedFiles);
+            }
+        }
+    });
+
+    function addFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            answerKeyFiles.push(files[i]);
+        }
+        renderFileList();
+    }
+
+    function removeFile(index) {
+        answerKeyFiles.splice(index, 1);
+        renderFileList();
+    }
+
+    function renderFileList() {
+        const listDiv = document.getElementById('file-list');
+        listDiv.innerHTML = '';
+        
+        if (answerKeyFiles.length === 0) return;
+
+        answerKeyFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            // Limit file name length for display
+            let displayName = file.name;
+            if(displayName.length > 35) displayName = displayName.substring(0, 32) + "...";
+            
+            item.innerHTML = `
+                <span>📎 ${displayName}</span>
+                <button class="file-item-remove" onclick="removeFile(${index})" title="Remove">×</button>
+            `;
+            listDiv.appendChild(item);
+        });
+    }
+
+    // Generate the Combined PDF using pdf-lib
+    async function prepareGeminiEval() {
+        if (answerKeyFiles.length === 0) {
+            alert('Please attach your Answer Key first.');
+            return;
+        }
+
+        const evalBtn = document.getElementById('prepare-eval-btn');
+        evalBtn.innerText = 'Combining PDF...';
+        evalBtn.disabled = true;
+
+        try {
+            const { PDFDocument } = PDFLib;
+            const pdfDoc = await PDFDocument.create();
+
+            // 1. Capture and add the Response Sheet as the first page
+            const resultArea = document.getElementById('result-area');
+            const mainEvalBtn = document.getElementById('evaluate-btn');
+            
+            mainEvalBtn.style.display = 'none'; 
+            const originalBg = resultArea.style.backgroundColor;
+            resultArea.style.backgroundColor = '#ffffff';
+
+            const rsCanvas = await html2canvas(resultArea);
+            
+            mainEvalBtn.style.display = 'inline-block'; 
+            resultArea.style.backgroundColor = originalBg;
+
+            const rsDataUrl = rsCanvas.toDataURL('image/png');
+            const rsImg = await pdfDoc.embedPng(rsDataUrl);
+            const rsDims = rsImg.scale(1);
+            const rsPage = pdfDoc.addPage([rsDims.width, rsDims.height]);
+            rsPage.drawImage(rsImg, { x: 0, y: 0, width: rsDims.width, height: rsDims.height });
+
+            // 2. Loop through uploaded files and append them
+            for (const file of answerKeyFiles) {
+                const arrayBuffer = await file.arrayBuffer();
+                
+                if (file.type === 'application/pdf') {
+                    // It's a PDF -> copy all pages
+                    const uploadedPdf = await PDFDocument.load(arrayBuffer);
+                    const copiedPages = await pdfDoc.copyPages(uploadedPdf, uploadedPdf.getPageIndices());
+                    copiedPages.forEach(p => pdfDoc.addPage(p));
+                } else if (file.type.startsWith('image/')) {
+                    // It's an Image -> Create new page and draw image
+                    let img;
+                    if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+                        img = await pdfDoc.embedJpg(arrayBuffer);
+                    } else {
+                        // Assume PNG for pasting and other image formats
+                        img = await pdfDoc.embedPng(arrayBuffer);
+                    }
+                    
+                    const dims = img.scale(1);
+                    const newPage = pdfDoc.addPage([dims.width, dims.height]);
+                    newPage.drawImage(img, { x: 0, y: 0, width: dims.width, height: dims.height });
+                }
+            }
+
+            // 3. Save and Download Combined PDF
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'MockMate_Evaluation_Document.pdf';
+            link.click();
+
+            // 4. Setup prompt and show next modal
+            const promptText = (examMode === 'jee') ? jeePrompt : govPrompt;
+            document.getElementById('gemini-prompt-text').value = promptText;
+
+            closeEvalModal();
+            document.getElementById('prompt-modal').style.display = 'flex';
+
+        } catch (error) {
+            console.error(error);
+            alert("Error combining documents. Please make sure your images/PDFs are valid.");
+        } finally {
+            evalBtn.innerText = 'Generate Combined PDF';
+            evalBtn.disabled = false;
+        }
+    }
+
+    function copyPromptAndClose() {
+        const textarea = document.getElementById('gemini-prompt-text');
+        textarea.select();
+        document.execCommand('copy');
+        document.getElementById('prompt-modal').style.display = 'none';
+        alert('Prompt copied! Now upload the downloaded Combined PDF into ChatGPT or Gemini.');
+    }
+</script>
+</body>
+</html>
